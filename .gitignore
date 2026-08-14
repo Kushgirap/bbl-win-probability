@@ -1,0 +1,10 @@
+# Data — download from cricsheet.org
+data/cricsheet_jsons/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# System
+.DS_Store
