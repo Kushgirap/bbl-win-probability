@@ -191,6 +191,90 @@ def build_features(df, par_table):
     return df
 
 
+# Prediction floor from section 5a of the notebook, recorded in
+# models/metadata.json's "prediction_floor". A first-innings state is only
+# predicted from ball 30 - below that there is genuinely nothing to predict
+# from. A chase is predicted from ball 1, since the target makes it informative
+# immediately. build_features_single refuses below these rather than silently
+# returning a prediction the model was never evaluated on.
+PREDICTION_FLOOR = {1: 30, 2: 1}
+
+
+def build_features_single(state, par_table):
+    """
+    Feature vector for one match state, for a prediction service that has a
+    single delivery rather than a whole match to group over.
+
+    `add_target_features` finds the target by grouping the first innings within
+    a match - there is no match to group over here, so the caller supplies the
+    target directly and this recomputes `is_chasing`, `runs_needed` and
+    `run_rate_needed` from it, matching `add_target_features` exactly (same
+    clip and fillna behaviour). Everything else reuses `add_state_features` and
+    `add_par_features` unchanged, so this cannot drift from the batch path on
+    anything but the one calculation that genuinely differs.
+
+    `state` is a dict: innings_number, balls_faced, cumulative_runs,
+    cumulative_wickets, overs_completed, batting_team, venue, and target_score
+    (required when innings_number is 2; ignored when 1, same as a first-innings
+    row getting no target in `add_target_features`).
+
+    Returns a single-row DataFrame in FEATURES order, categoricals still as
+    strings - encode with `encode_single` before handing it to the model.
+    """
+    innings_number = state["innings_number"]
+    balls_faced = state["balls_faced"]
+
+    floor = PREDICTION_FLOOR.get(innings_number)
+    if floor is None or balls_faced < floor:
+        raise ValueError(
+            f"balls_faced={balls_faced} is below the prediction floor for "
+            f"innings {innings_number} (ball {floor}) - the model was never "
+            f"evaluated below it"
+        )
+
+    is_chasing = innings_number == 2
+    if is_chasing:
+        target_score = state.get("target_score")
+        if target_score is None:
+            raise ValueError(
+                "target_score is required when innings_number is 2 - "
+                "add_target_features's fillna(0) would otherwise turn a "
+                "missing target into runs_needed=0, which the model reads as "
+                "a near-certain win rather than an error"
+            )
+    else:
+        target_score = np.nan
+
+    df = pd.DataFrame([state])
+    df = add_state_features(df)
+
+    df["target_score"] = target_score
+    df["is_chasing"] = int(is_chasing)
+    df["runs_needed"] = (
+        (df["target_score"] - df["cumulative_runs"]).fillna(0).clip(lower=0)
+    )
+    df["run_rate_needed"] = (
+        df["runs_needed"] / df["balls_remaining"].clip(lower=1) * 6
+    ).fillna(0)
+
+    df = add_par_features(df, par_table)
+    return df[FEATURES]
+
+
+def encode_single(X, encoders):
+    """
+    Map categorical columns using encoder dicts saved from training
+    (`{label: index}`, one dict per column in CATEGORICAL).
+
+    A value not seen in training maps to -1, matching how the notebook handles
+    unseen teams and venues at test time rather than raising.
+    """
+    X = X.copy()
+    for col in CATEGORICAL:
+        X[col] = X[col].astype(str).map(encoders[col]).fillna(-1).astype(int)
+    return X
+
+
 def check_finite(X, name="X"):
     """
     Fail loudly on inf/NaN, at the point it appears rather than deep inside
