@@ -1,0 +1,38 @@
+{
+  "features": [
+    "cumulative_runs",
+    "cumulative_wickets",
+    "balls_faced",
+    "wickets_remaining",
+    "run_rate",
+    "runs_per_wicket",
+    "projected_final_score",
+    "wicket_loss_rate",
+    "wicket_pressure",
+    "runs_per_ball_ratio",
+    "efficiency_in_death",
+    "is_chasing",
+    "runs_needed",
+    "run_rate_needed",
+    "runs_vs_par",
+    "batting_team",
+    "venue"
+  ],
+  "train_cutoff": "2023-12-31",
+  "val_cutoff": "2022-06-30",
+  "training_filter": {
+    "innings_1_min_ball": 30,
+    "innings_2_min_ball": 30
+  },
+  "prediction_floor": {
+    "innings_1_min_ball": 30,
+    "innings_2_min_ball": 1
+  },
+  "best_iteration": 164,
+  "test_metrics": {
+    "accuracy": 0.7309,
+    "roc_auc": 0.8181,
+    "brier": 0.1745,
+    "early_chase_auc": 0.7563
+  }
+}
