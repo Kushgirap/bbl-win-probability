@@ -69,7 +69,10 @@ def add_state_features(df):
     df = df.copy()
 
     # Rate
-    df["run_rate"] = (df["cumulative_runs"] / df["balls_faced"] * 6).round(2)
+        # clip guards the opening-wide case: a wide on the first delivery creates a
+    # row with balls_faced = 0, which sends run_rate (and everything derived
+    # from it) to inf
+    df["run_rate"] = (df["cumulative_runs"] / df["balls_faced"].clip(lower=1) * 6).round(2)
     df["balls_remaining"] = (BALLS_PER_INNINGS - df["balls_faced"]).clip(lower=0)
     df["overs_remaining"] = df["balls_remaining"] / 6
     df["wickets_remaining"] = 10 - df["cumulative_wickets"]
