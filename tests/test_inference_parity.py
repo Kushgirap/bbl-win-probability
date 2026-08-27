@@ -24,6 +24,7 @@ import pytest
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 
+from extraction import extract_match_state  # noqa: E402
 from features import (  # noqa: E402
     FEATURES,
     PREDICTION_FLOOR,
@@ -37,42 +38,6 @@ MODELS_DIR = os.path.join(REPO_ROOT, "models")
 SAMPLE_SIZE = 200
 SEED = 42
 TOLERANCE = 1e-12
-
-
-def _extract_match_state(match_data, innings_num, match_id):
-    """One row per delivery. Mirrors extract_match_state in
-    notebooks/01_win_probability_model.ipynb - duplicated here rather than
-    imported, since the notebook isn't a module tests can pull a function from."""
-    innings = match_data["innings"][innings_num]
-    batting_team = innings["team"]
-
-    states = []
-    cumulative_runs = 0
-    cumulative_wickets = 0
-    ball_count = 0
-
-    for over in innings["overs"]:
-        for delivery in over["deliveries"]:
-            cumulative_runs += delivery["runs"]["total"]
-            if "wickets" in delivery:
-                cumulative_wickets += len(delivery["wickets"])
-
-            extras = delivery.get("extras", {})
-            if "wides" not in extras and "noballs" not in extras:
-                ball_count += 1
-
-            states.append({
-                "match_id": match_id,
-                "innings_number": innings_num + 1,
-                "venue": match_data["info"]["venue"],
-                "batting_team": batting_team,
-                "cumulative_runs": cumulative_runs,
-                "cumulative_wickets": cumulative_wickets,
-                "balls_faced": ball_count,
-                "overs_completed": over["over"],
-            })
-
-    return states
 
 
 def _load_real_states():
@@ -90,7 +55,7 @@ def _load_real_states():
 
         match_id = filename.replace(".json", "")
         for innings_num in range(len(match["innings"])):
-            all_states.extend(_extract_match_state(match, innings_num, match_id))
+            all_states.extend(extract_match_state(match, innings_num, match_id))
 
     return pd.DataFrame(all_states)
 
