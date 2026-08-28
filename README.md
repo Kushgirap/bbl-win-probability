@@ -9,7 +9,7 @@ deliveries actually decided a match.
 
 ## Results
 
-Evaluated on 2024–2026 matches, held out entirely — no modelling decision touched them.
+Evaluated on 2024–2026 matches, held out entirely - no modelling decision touched them.
 
 | Metric | Value | Baseline |
 |---|---|---|
@@ -19,7 +19,7 @@ Evaluated on 2024–2026 matches, held out entirely — no modelling decision to
 | Fit/test gap | 0.059 | — |
 
 Brier score is the metric that matters most here. The model outputs a probability, not a
-verdict, and accuracy only checks which side of 0.5 a prediction landed on — a model can
+verdict, and accuracy only checks which side of 0.5 a prediction landed on. A model can
 be 73% accurate while claiming 85% confidence in situations that are really 60%.
 
 ---
@@ -41,7 +41,7 @@ Engineered features carry 92.7% of the signal. Runs and wickets on their own pre
 almost nothing; it is runs *per wicket*, wickets *per over*, and runs *measured against
 the target or par* that do the work.
 
-The strongest single feature is `runs_per_ball_ratio` (24.4%) — scoring rate divided by
+The strongest single feature is `runs_per_ball_ratio` (24.4%). Scoring rate divided by
 wicket-loss rate. It separates a side scoring freely from one scoring fast while losing
 wickets, a distinction none of the individual features could express.
 
@@ -176,7 +176,7 @@ notebook top to bottom. Requires `pandas`, `numpy`, `xgboost`, `scikit-learn`,
 
 ## Limitations
 
-- **No player identity.** The model sees 112/2 after 12 overs without knowing whether an
+- **No player identity.** The model sees 112/7 after 12 overs without knowing whether an
   opener or a number nine is on strike. The largest remaining gap, and the next thing to
   build.
 - **Mild mid-range overconfidence.** The calibration table leans roughly +0.05 to +0.10
