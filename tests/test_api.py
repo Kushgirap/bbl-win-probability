@@ -62,6 +62,7 @@ def test_predict_first_innings():
     assert 0.0 <= body["win_probability"] <= 1.0
     assert body["batting_team"] == "Sydney Sixers"
     assert body["is_chasing"] is False
+    assert body["match_state"] == "live"
     assert body["confidence_note"] is None
 
 
@@ -73,6 +74,7 @@ def test_predict_chase():
     assert 0.0 <= body["win_probability"] <= 1.0
     assert body["batting_team"] == "Melbourne Stars"
     assert body["is_chasing"] is True
+    assert body["match_state"] == "live"
     assert body["confidence_note"] is None  # ball 60 is past the early-chase window
 
 
@@ -114,10 +116,103 @@ def test_early_chase_returns_confidence_note():
     resp = client.post("/predict", json=state)
 
     assert resp.status_code == 200
-    note = resp.json()["confidence_note"]
+    body = resp.json()
+    assert body["match_state"] == "live"  # advisory note, not a resolved match
+    note = body["confidence_note"]
     assert note is not None
     assert "0.756" in note
     assert "0.818" in note
+
+
+def test_chase_complete_resolves_as_win():
+    state = {
+        "innings_number": 2,
+        "balls_faced": 90,
+        "cumulative_runs": 200,
+        "cumulative_wickets": 4,
+        "batting_team": "Adelaide Strikers",
+        "venue": "Adelaide Oval",
+        "target_score": 150.0,
+    }
+    resp = client.post("/predict", json=state)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["win_probability"] == 1.0
+    assert body["match_state"] == "resolved"
+    assert "not a model prediction" in body["confidence_note"]
+
+
+def test_chase_all_out_resolves_as_loss():
+    state = {
+        "innings_number": 2,
+        "balls_faced": 95,
+        "cumulative_runs": 120,
+        "cumulative_wickets": 10,
+        "batting_team": "Adelaide Strikers",
+        "venue": "Adelaide Oval",
+        "target_score": 150.0,
+    }
+    resp = client.post("/predict", json=state)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["win_probability"] == 0.0
+    assert body["match_state"] == "resolved"
+    assert "all out" in body["confidence_note"]
+
+
+def test_chase_overs_exhausted_resolves_as_loss():
+    state = {
+        "innings_number": 2,
+        "balls_faced": 120,
+        "cumulative_runs": 140,
+        "cumulative_wickets": 6,
+        "batting_team": "Adelaide Strikers",
+        "venue": "Adelaide Oval",
+        "target_score": 150.0,
+    }
+    resp = client.post("/predict", json=state)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["win_probability"] == 0.0
+    assert body["match_state"] == "resolved"
+    assert "not a model prediction" in body["confidence_note"]
+
+
+def test_innings_one_all_out_keeps_predicting():
+    state = {
+        "innings_number": 1,
+        "balls_faced": 85,
+        "cumulative_runs": 130,
+        "cumulative_wickets": 10,
+        "batting_team": "Adelaide Strikers",
+        "venue": "Adelaide Oval",
+    }
+    resp = client.post("/predict", json=state)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert 0.0 <= body["win_probability"] <= 1.0
+    assert body["match_state"] == "innings_complete"
+
+
+def test_innings_one_full_overs_keeps_predicting():
+    state = {
+        "innings_number": 1,
+        "balls_faced": 120,
+        "cumulative_runs": 180,
+        "cumulative_wickets": 6,
+        "batting_team": "Adelaide Strikers",
+        "venue": "Adelaide Oval",
+    }
+    resp = client.post("/predict", json=state)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert 0.0 <= body["win_probability"] <= 1.0
+    assert body["match_state"] == "innings_complete"
 
 
 @pytest.mark.parametrize("state", [FIRST_INNINGS_STATE, CHASE_STATE])

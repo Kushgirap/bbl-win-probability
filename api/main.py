@@ -103,8 +103,49 @@ def health():
     }
 
 
+def _terminal_chase_result(state: MatchState):
+    """None if the chase is still live; otherwise the arithmetic result of one
+    that already isn't - the model was trained on live states only and will
+    still return a plausible-looking number for a match that's already over.
+
+    Only decidable once a target exists, so a missing target falls through to
+    the usual "target_score is required" error instead of being guessed at
+    here."""
+    if state.target_score is None:
+        return None
+
+    if state.cumulative_runs > state.target_score:
+        return 1.0, f"{state.batting_team} passed the target of {state.target_score:g}"
+
+    if state.cumulative_wickets == 10:
+        return 0.0, f"{state.batting_team} was all out short of the target of {state.target_score:g}"
+
+    if state.balls_faced == 120:
+        return (
+            0.0,
+            f"{state.batting_team} did not reach the target of {state.target_score:g} "
+            "within 120 balls",
+        )
+
+    return None
+
+
 @app.post("/predict")
 def predict(state: MatchState):
+    is_chasing = state.innings_number == 2
+
+    if is_chasing:
+        terminal = _terminal_chase_result(state)
+        if terminal is not None:
+            win_probability, reason = terminal
+            return {
+                "win_probability": win_probability,
+                "batting_team": state.batting_team,
+                "is_chasing": True,
+                "match_state": "resolved",
+                "confidence_note": f"{reason} - result is arithmetic, not a model prediction.",
+            }
+
     payload = state.model_dump(exclude_none=True)
     payload["overs_completed"] = overs_completed_from_balls(state.balls_faced)
 
@@ -116,7 +157,6 @@ def predict(state: MatchState):
     X = encode_single(X, encoders)
     win_probability = float(model.predict_proba(X)[:, 1][0])
 
-    is_chasing = state.innings_number == 2
     confidence_note = None
     if is_chasing and state.balls_faced < EARLY_CHASE_BALL:
         confidence_note = (
@@ -124,9 +164,17 @@ def predict(state: MatchState):
             f"measured at {EARLY_CHASE_AUC:.3f} AUC, against {OVERALL_AUC:.3f} overall."
         )
 
+    # The first innings ending doesn't resolve the match - the second innings
+    # still has to be played - so this keeps predicting rather than stopping,
+    # just flagged as no longer a live delivery.
+    match_state = "live"
+    if not is_chasing and (state.cumulative_wickets == 10 or state.balls_faced == 120):
+        match_state = "innings_complete"
+
     return {
         "win_probability": win_probability,
         "batting_team": state.batting_team,
         "is_chasing": is_chasing,
+        "match_state": match_state,
         "confidence_note": confidence_note,
     }
