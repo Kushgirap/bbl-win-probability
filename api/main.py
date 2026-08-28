@@ -16,7 +16,7 @@ import joblib
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 from features import build_features_single, encode_single  # noqa: E402
 
 MODELS_DIR = os.path.join(REPO_ROOT, "models")
+FRONTEND_DIR = os.path.join(REPO_ROOT, "frontend")
 
 model = joblib.load(os.path.join(MODELS_DIR, "win_probability_model.joblib"))
 encoders = joblib.load(os.path.join(MODELS_DIR, "encoders.joblib"))
@@ -93,6 +94,13 @@ class MatchState(BaseModel):
         return v
 
 
+@app.get("/", include_in_schema=False)
+def index():
+    """Serves the frontend from the same origin as the API - no CORS
+    middleware needed, because there's no cross-origin request to allow."""
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+
 @app.get("/health")
 def health():
     return {
@@ -100,6 +108,18 @@ def health():
         "model_loaded": model is not None,
         "best_iteration": metadata["best_iteration"],
         "features": len(metadata["features"]),
+    }
+
+
+@app.get("/options")
+def options():
+    """Team and venue choices, straight from the encoders that will actually
+    handle them. A hardcoded list can drift from what training saw; anything
+    not among these keys maps to -1 and predicts against the wrong team or
+    venue with no error, so the dropdowns can only offer what's really here."""
+    return {
+        "teams": sorted(encoders["batting_team"].keys()),
+        "venues": sorted(encoders["venue"].keys()),
     }
 
 
@@ -178,3 +198,13 @@ def predict(state: MatchState):
         "match_state": match_state,
         "confidence_note": confidence_note,
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    # Render assigns the port at runtime via $PORT rather than a fixed one,
+    # and 127.0.0.1 only accepts connections from inside the container -
+    # 0.0.0.0 is what makes the service reachable from outside it.
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

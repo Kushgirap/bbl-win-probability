@@ -54,6 +54,25 @@ def test_health():
     assert body["features"] == 17
 
 
+def test_index_serves_html():
+    resp = client.get("/")
+
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "<html" in resp.text.lower()
+
+
+def test_options_returns_sorted_lists_matching_encoders():
+    resp = client.get("/options")
+    assert resp.status_code == 200
+
+    body = resp.json()
+    assert body["teams"] == sorted(encoders["batting_team"].keys())
+    assert body["venues"] == sorted(encoders["venue"].keys())
+    assert len(body["teams"]) > 0
+    assert len(body["venues"]) > 0
+
+
 def test_predict_first_innings():
     resp = client.post("/predict", json=FIRST_INNINGS_STATE)
     assert resp.status_code == 200

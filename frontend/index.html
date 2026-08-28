@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BBL Win Probability</title>
+<style>
+  :root {
+    --navy: #003087;
+    --red: #C8102E;
+    --grey: #9AA5B1;
+    --grid: #EDEFF2;
+    --text: #4A5568;
+    --bg: #FAFBFC;
+    --panel: #FFFFFF;
+    --border: #E2E5EA;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  header {
+    padding: 20px 32px 8px;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 20px;
+    color: var(--navy);
+  }
+
+  header p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--grey);
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 16px 32px 40px;
+  }
+
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+
+  .panel h2 {
+    margin: 0 0 18px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--grey);
+  }
+
+  .field {
+    margin-bottom: 20px;
+  }
+
+  .field label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .field label .value {
+    color: var(--navy);
+    font-weight: 600;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--navy);
+  }
+
+  select, input[type="number"] {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--text);
+    background: white;
+  }
+
+  .toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .toggle button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: white;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .toggle button.active {
+    background: var(--navy);
+    color: white;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .result-team {
+    font-size: 13px;
+    color: var(--grey);
+    margin-bottom: 4px;
+  }
+
+  .result-value {
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--navy);
+    line-height: 1;
+    margin-bottom: 16px;
+    transition: opacity 0.15s ease;
+  }
+
+  .bar-track {
+    height: 14px;
+    background: var(--grid);
+    border-radius: 7px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: var(--navy);
+    width: 0%;
+    transition: width 0.2s ease, opacity 0.15s ease;
+  }
+
+  .pending .result-value,
+  .pending .bar-fill {
+    opacity: 0.35;
+  }
+
+  .note {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--grid);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--red);
+    border: 1px solid var(--red);
+    border-radius: 999px;
+    padding: 3px 10px;
+    margin-bottom: 12px;
+  }
+
+  .error {
+    font-size: 13px;
+    color: var(--red);
+    margin-top: 8px;
+  }
+
+  .placeholder {
+    color: var(--grey);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BBL Win Probability</h1>
+  <p>Ball-by-ball win probability, served straight from the trained model.</p>
+</header>
+
+<div class="app">
+  <section class="panel">
+    <h2>Match state</h2>
+
+    <div class="toggle" id="inningsToggle">
+      <button type="button" data-innings="1" class="active">1st innings (setting)</button>
+      <button type="button" data-innings="2">2nd innings (chasing)</button>
+    </div>
+
+    <div class="field">
+      <label>Balls faced <span class="value" id="ballsLabel">30.0 overs</span></label>
+      <input type="range" id="ballsFaced" min="0" max="120" value="30">
+    </div>
+
+    <div class="field">
+      <label>Runs <span class="value" id="runsLabel">30</span></label>
+      <input type="range" id="runs" min="0" max="300" value="30">
+    </div>
+
+    <div class="field">
+      <label>Wickets <span class="value" id="wicketsLabel">0</span></label>
+      <input type="range" id="wickets" min="0" max="10" value="0">
+    </div>
+
+    <div class="field hidden" id="targetField">
+      <label>Target score</label>
+      <input type="number" id="targetScore" min="1" step="1" placeholder="e.g. 165">
+    </div>
+
+    <div class="field">
+      <label>Batting team</label>
+      <select id="battingTeam"><option>Loading...</option></select>
+    </div>
+
+    <div class="field">
+      <label>Venue</label>
+      <select id="venue"><option>Loading...</option></select>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Result</h2>
+
+    <div id="resultBody">
+      <div class="placeholder">Adjust the match state to see a prediction.</div>
+    </div>
+    <div class="error" id="errorBox"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const inningsToggle = document.getElementById("inningsToggle");
+  const ballsFaced = document.getElementById("ballsFaced");
+  const runs = document.getElementById("runs");
+  const wickets = document.getElementById("wickets");
+  const targetField = document.getElementById("targetField");
+  const targetScore = document.getElementById("targetScore");
+  const battingTeam = document.getElementById("battingTeam");
+  const venue = document.getElementById("venue");
+
+  const ballsLabel = document.getElementById("ballsLabel");
+  const runsLabel = document.getElementById("runsLabel");
+  const wicketsLabel = document.getElementById("wicketsLabel");
+
+  const resultBody = document.getElementById("resultBody");
+  const errorBox = document.getElementById("errorBox");
+
+  let inningsNumber = 1;
+  let debounceTimer = null;
+  let lastResult = null;
+  let optionsLoaded = false;
+
+  function formatOvers(balls) {
+    const overs = Math.floor(balls / 6);
+    const rem = balls % 6;
+    return overs + "." + rem + " overs";
+  }
+
+  function updateLabels() {
+    ballsLabel.textContent = formatOvers(Number(ballsFaced.value));
+    runsLabel.textContent = runs.value;
+    wicketsLabel.textContent = wickets.value;
+  }
+
+  function setInnings(n) {
+    inningsNumber = n;
+    [...inningsToggle.querySelectorAll("button")].forEach((btn) => {
+      btn.classList.toggle("active", Number(btn.dataset.innings) === n);
+    });
+    targetField.classList.toggle("hidden", n !== 2);
+  }
+
+  inningsToggle.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-innings]");
+    if (!btn) return;
+    setInnings(Number(btn.dataset.innings));
+    scheduleUpdate();
+  });
+
+  async function loadOptions() {
+    try {
+      const resp = await fetch("/options");
+      const data = await resp.json();
+
+      battingTeam.innerHTML = "";
+      data.teams.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t;
+        opt.textContent = t;
+        battingTeam.appendChild(opt);
+      });
+
+      venue.innerHTML = "";
+      data.venues.forEach((v) => {
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        venue.appendChild(opt);
+      });
+
+      optionsLoaded = true;
+      scheduleUpdate(0);
+    } catch (err) {
+      battingTeam.innerHTML = "<option>could not load teams</option>";
+      venue.innerHTML = "<option>could not load venues</option>";
+    }
+  }
+
+  function detailToText(detail) {
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((e) => (e && typeof e === "object" && "msg" in e) ? e.msg : JSON.stringify(e))
+        .join("; ");
+    }
+    return "The request was rejected.";
+  }
+
+  function setPending(pending) {
+    resultBody.classList.toggle("pending", pending);
+  }
+
+  function renderResult(data) {
+    lastResult = data;
+    const pct = (data.win_probability * 100).toFixed(1);
+
+    let html = "";
+    html += '<div class="result-team">' + escapeHtml(data.batting_team) + " to win</div>";
+    html += '<div class="result-value">' + pct + "%</div>";
+    html += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>';
+
+    if (data.match_state && data.match_state !== "live") {
+      html += '<div class="badge">' + escapeHtml(data.match_state) + "</div>";
+    }
+    if (data.confidence_note) {
+      html += '<div class="note">' + escapeHtml(data.confidence_note) + "</div>";
+    }
+
+    resultBody.innerHTML = html;
+  }
+
+  function escapeHtml(s) {
+    const div = document.createElement("div");
+    div.textContent = String(s);
+    return div.innerHTML;
+  }
+
+  function currentPayload() {
+    const payload = {
+      innings_number: inningsNumber,
+      balls_faced: Number(ballsFaced.value),
+      cumulative_runs: Number(runs.value),
+      cumulative_wickets: Number(wickets.value),
+      batting_team: battingTeam.value,
+      venue: venue.value,
+    };
+    if (inningsNumber === 2 && targetScore.value !== "") {
+      payload.target_score = Number(targetScore.value);
+    }
+    return payload;
+  }
+
+  async function fetchPrediction() {
+    if (!optionsLoaded || !battingTeam.value || !venue.value) return;
+
+    setPending(true);
+    errorBox.textContent = "";
+
+    try {
+      const resp = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(currentPayload()),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        renderResult(data);
+      } else {
+        const data = await resp.json().catch(() => ({ detail: "The request was rejected." }));
+        errorBox.textContent = detailToText(data.detail);
+      }
+    } catch (err) {
+      errorBox.textContent = "could not reach the model";
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function scheduleUpdate(delay) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fetchPrediction, delay === undefined ? 250 : delay);
+  }
+
+  [ballsFaced, runs, wickets].forEach((input) => {
+    input.addEventListener("input", () => {
+      updateLabels();
+      scheduleUpdate();
+    });
+  });
+
+  targetScore.addEventListener("input", () => scheduleUpdate());
+  battingTeam.addEventListener("change", () => scheduleUpdate());
+  venue.addEventListener("change", () => scheduleUpdate());
+
+  updateLabels();
+  setInnings(1);
+  loadOptions();
+})();
+</script>
+
+</body>
+</html>
