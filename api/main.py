@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field, field_validator
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 
-from features import build_features_single, encode_single  # noqa: E402
+from features import BALLS_PER_INNINGS, build_features_single, encode_single  # noqa: E402
 
 MODELS_DIR = os.path.join(REPO_ROOT, "models")
 FRONTEND_DIR = os.path.join(REPO_ROOT, "frontend")
@@ -71,6 +71,25 @@ def overs_completed_from_balls(balls_faced: int) -> int:
     a claimed overs_completed=3 is not a state that can exist, and letting it
     through would feed wicket_loss_rate the wrong denominator with no error."""
     return (balls_faced - 1) // 6
+
+
+def _prediction_context(is_chasing, balls_faced, features_row):
+    """The numbers behind the headline percentage, straight off the row
+    build_features_single produced - not recomputed, so this can't drift from
+    what the model actually saw. balls_remaining isn't a model feature (see
+    FEATURES in src/features.py), so it's the one value derived here, the same
+    way overs_completed is above."""
+    if is_chasing:
+        return {
+            "runs_needed": int(round(features_row["runs_needed"])),
+            "balls_remaining": max(0, BALLS_PER_INNINGS - balls_faced),
+            "required_run_rate": round(float(features_row["run_rate_needed"]), 2),
+            "current_run_rate": round(float(features_row["run_rate"]), 2),
+        }
+    return {
+        "projected_score": int(round(features_row["projected_final_score"])),
+        "runs_vs_par": int(round(features_row["runs_vs_par"])),
+    }
 
 
 class MatchState(BaseModel):
@@ -164,6 +183,7 @@ def predict(state: MatchState):
                 "is_chasing": True,
                 "match_state": "resolved",
                 "confidence_note": f"{reason} - result is arithmetic, not a model prediction.",
+                "context": None,  # no model call behind an arithmetic result
             }
 
     payload = state.model_dump(exclude_none=True)
@@ -173,6 +193,8 @@ def predict(state: MatchState):
         X = build_features_single(payload, par_table)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+
+    context = _prediction_context(is_chasing, state.balls_faced, X.iloc[0])
 
     X = encode_single(X, encoders)
     win_probability = float(model.predict_proba(X)[:, 1][0])
@@ -197,6 +219,7 @@ def predict(state: MatchState):
         "is_chasing": is_chasing,
         "match_state": match_state,
         "confidence_note": confidence_note,
+        "context": context,
     }
 
 

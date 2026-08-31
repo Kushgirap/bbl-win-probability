@@ -162,6 +162,16 @@
     opacity: 0.35;
   }
 
+  .context {
+    margin-bottom: 16px;
+  }
+
+  .context-row {
+    font-size: 13px;
+    color: var(--grey);
+    line-height: 1.6;
+  }
+
   .note {
     font-size: 13px;
     line-height: 1.5;
@@ -348,6 +358,33 @@
     resultBody.classList.toggle("pending", pending);
   }
 
+  function contextRows(context) {
+    // These numbers come straight from the API's "context" object, which is
+    // read off the same feature row the model predicted from - nothing here
+    // is recomputed, just formatted into the two lines the model's reasoning
+    // actually reduces to.
+    if (!context) return [];
+
+    if ("runs_needed" in context) {
+      return [
+        "Needs " + context.runs_needed + " from " + context.balls_remaining + " balls",
+        "Required rate " + context.required_run_rate.toFixed(2) +
+          ", current rate " + context.current_run_rate.toFixed(2),
+      ];
+    }
+
+    let parLine;
+    if (context.runs_vs_par > 0) {
+      parLine = context.runs_vs_par + " runs above par at this ground";
+    } else if (context.runs_vs_par < 0) {
+      parLine = Math.abs(context.runs_vs_par) + " runs below par at this ground";
+    } else {
+      parLine = "At par for this ground";
+    }
+
+    return ["Projected " + context.projected_score, parLine];
+  }
+
   function renderResult(data) {
     lastResult = data;
     const pct = (data.win_probability * 100).toFixed(1);
@@ -356,6 +393,13 @@
     html += '<div class="result-team">' + escapeHtml(data.batting_team) + " to win</div>";
     html += '<div class="result-value">' + pct + "%</div>";
     html += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>';
+
+    const rows = contextRows(data.context);
+    if (rows.length) {
+      html += '<div class="context">' +
+        rows.map((row) => '<div class="context-row">' + escapeHtml(row) + "</div>").join("") +
+        "</div>";
+    }
 
     if (data.match_state && data.match_state !== "live") {
       html += '<div class="badge">' + escapeHtml(data.match_state) + "</div>";
