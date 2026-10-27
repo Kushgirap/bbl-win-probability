@@ -47,10 +47,10 @@ wickets, a distinction none of the individual features could express.
 
 ### 2. Setting and chasing are two different problems
 
-| | Brier | Powerplay | Middle | Death |
+| | Brier | Powerplay (AUC) | Middle (AUC) | Death (AUC) |
 |---|---|---|---|---|
-| Chasing | 0.122 | 0.740 | 0.780 | **0.871** |
-| Setting | 0.221 | 0.660 | 0.652 | 0.663 |
+| Chasing | 0.122 | 0.843 | 0.899 | **0.962** |
+| Setting | 0.221 | 0.678 | 0.690 | 0.718 |
 
 Chasing sharpens as the innings progresses — uncertainty collapses as the target nears.
 Setting is **flat**: it does not improve as information accumulates, and its Brier score
@@ -74,19 +74,22 @@ moved the match. Ranking those changes gives the passages that actually decided 
 measured rather than eyeballed.
 
 ```
-Reference: Adelaide Strikers   final win probability 11.4%
-Innings break re-anchor: +26.5% (model reframing, not attributed to any delivery)
+Reference: Hobart Hurricanes   final win probability 92.3%
+Innings break re-anchor: +10.6% (model reframing, not attributed to any delivery)
 
-Biggest swings:
-  Inn 2  16.6  136/4 HTRY Thornton to NA McSweeney   -20.8%
-  Inn 2  18.5  161/5 HTRY Thornton to NA McSweeney   -17.5%
-  Inn 2  13.5  105/4 MW Short to NA McSweeney        -17.3%
-  Inn 2  14.2  110/4 L Scott to NA McSweeney         -16.2%
-  Inn 1   9.6   60/3 W Prestwidge to CA Lynn WICKET  -15.7%
+Biggest 8 swings:
+  Inn 2  18.5  155/4 CJ Jordan to MP Stoinis WICKET   +17.4%
+  Inn 1  18.3  158/5 NM Coulter-Nile to Nikhil Chaudhary WICKET   -13.5%
+  Inn 2  16.1  131/3 CJ Jordan to MP Stoinis   -9.7%
+  Inn 1  20.2  177/7 Imad Wasim to NT Ellis   +8.8%
+  Inn 2  16.4  135/3 CJ Jordan to MP Stoinis   +8.6%
+  Inn 2   8.5   68/2 P Hatzoglou to GJ Maxwell   -8.4%
+  Inn 2   8.4   64/2 P Hatzoglou to GJ Maxwell   -7.9%
+  Inn 2   9.1   73/2 NT Ellis to GJ Maxwell   -7.7%
 ```
 
-McSweeney appears in four of the top five, all against Adelaide — one batter dragging a
-chase across the line, tracked delivery by delivery.
+CJ Jordan to MP Stoinis accounts for three of the top eight swings — one bowler-batter
+matchup repeatedly swinging the same chase, tracked delivery by delivery.
 
 Two details make this more than a subtraction:
 
@@ -100,8 +103,8 @@ the model's framing changes (the target becomes known, `is_chasing` flips), so t
 probability re-anchors. That jump is now excluded from the rankings and reported
 separately.
 
-Leverage behaves as it should across match types: total death-over swing was **1.265** in
-a match decided in the final over against **0.010** in a one-sided one. Flat leverage in a
+Leverage behaves as it should across match types: total death-over swing was **0.359** in
+a match decided in the final over against **0.039** in a one-sided one. Flat leverage in a
 blowout is the correct answer, not a limitation.
 
 ![Win probability through a close match](outputs/win_probability_example.png)
@@ -110,7 +113,7 @@ blowout is the correct answer, not a limitation.
 
 ## Method
 
-**Data.** 663 Cricsheet JSON files, 647 usable after dropping no-results, flattened to
+**Data.** 662 Cricsheet JSON files, 647 usable after dropping no-results, flattened to
 151,331 delivery-level rows.
 
 **Split.** Chronological, three ways — fit (2011 to mid-2022), validation (mid-2022 to
@@ -152,7 +155,7 @@ the API rather than left to memory.
 ```
 bbl-win-probability/
 ├── data/
-│   └── cricsheet_jsons/            # 663 match files (not committed)
+│   └── cricsheet_jsons/            # 662 match files (not committed)
 ├── notebooks/
 │   └── 01_win_probability_model.ipynb
 ├── src/
