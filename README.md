@@ -122,6 +122,24 @@ test on 2014, which is not the question being asked. The validation slice exists
 early stopping away from the test set; watching test loss to decide how many trees to
 build would let the test set influence a modelling decision.
 
+A row-level random split of the training data scores 0.781 accuracy, against 0.731
+chronological — but those score different rows from different seasons, so the gap
+mixes two things. Separating them takes two models scored on the same held-out rows
+(mean of five seeds):
+
+| | Accuracy | ROC-AUC | Brier |
+|---|---|---|---|
+| A — sibling deliveries from the test rows' matches in training | 0.779 | 0.873 | 0.146 |
+| B — no match shared between training and test | 0.755 | 0.837 | 0.165 |
+| Chronological test, 2024 onwards | 0.731 | 0.818 | 0.175 |
+
+**A vs B is leakage alone** — same rows, same training size, 2.5 points apart, and A
+ahead on every seed. Consecutive deliveries are near-duplicate rows carrying the same
+match outcome, so seeing ball 71 in training makes ball 72 look familiar. **B vs
+chronological is time** — B interpolates within seasons it trained on; the deployed
+model has to predict seasons after its data ends, which costs a further 2.4 points.
+The random split's ~5-point overstatement is roughly half each.
+
 Deliveries before ball 30 are dropped — a prediction two balls in carries almost no
 information and pulls the model toward noise. Filtering lifted accuracy from 0.635 to
 0.652 and AUC from 0.702 to 0.718.
